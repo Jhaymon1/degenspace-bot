@@ -34,7 +34,34 @@ def main():
     web_thread.start()
     logger.info("🌐 Web server started on port %d", web_port())
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    scheduler = AsyncIOScheduler()
+
+    async def post_init(application: Application) -> None:
+        """Start the scheduler inside the bot's running event loop."""
+        scheduler.add_job(
+            check_price_alerts,
+            "interval",
+            seconds=60,
+            args=[application],
+        )
+        try:
+            scheduler.start()
+            logger.info("⏰ Price alert scheduler started")
+        except Exception as exc:
+            logger.error("Failed to start scheduler: %s", exc)
+
+    async def post_shutdown(application: Application) -> None:
+        """Cleanly stop the scheduler when the bot shuts down."""
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
     
     # Command handlers
     app.add_handler(CommandHandler("start", start))
@@ -51,16 +78,6 @@ def main():
     
     # Text message handler (for buy/sell flows)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Price alert scheduler
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        check_price_alerts,
-        "interval",
-        seconds=60,
-        args=[app]
-    )
-    scheduler.start()
     
     logger.info("🚀 PaperDex Bot starting (web + polling)...")
     app.run_polling(drop_pending_updates=True)
