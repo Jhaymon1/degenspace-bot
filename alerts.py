@@ -80,18 +80,23 @@ async def check_price_alerts(app: Application):
 
 
 async def add_alert(telegram_id: int, user_id: str, token_address: str, 
-                    chain_id: str, token_symbol: str, threshold: float = 10.0):
-    token_data = await get_token_price(token_address)
-    current_price = float(token_data.get("priceUsd", 0)) if token_data else 0
-    
-    supabase.table("price_alerts").upsert({
-        "user_id": user_id,
-        "telegram_id": telegram_id,
-        "token_address": token_address,
-        "chain_id": chain_id,
-        "token_symbol": token_symbol,
-        "alert_type": "BOTH",
-        "threshold_percent": threshold,
-        "last_price": current_price,
-        "is_active": True,
-    }).execute()
+                    chain_id: str, token_symbol: str, threshold: float = 10.0) -> bool:
+    try:
+        token_data = await get_token_price(token_address)
+        current_price = float(token_data.get("priceUsd", 0)) if token_data else 0
+        
+        supabase.table("price_alerts").upsert({
+            "user_id": user_id,
+            "telegram_id": telegram_id,
+            "token_address": token_address,
+            "chain_id": chain_id,
+            "token_symbol": token_symbol,
+            "alert_type": "BOTH",
+            "threshold_percent": threshold,
+            "last_price": current_price,
+            "is_active": True,
+        }).execute()
+        return True
+    except Exception as e:
+        logger.error("add_alert error for %s: %s", token_symbol, e)
+        return False

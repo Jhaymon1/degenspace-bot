@@ -1,5 +1,9 @@
+import logging
+
 import httpx
 from config import DEXSCREENER_BASE
+
+logger = logging.getLogger(__name__)
 
 
 async def get_trending_tokens(limit: int = 10):
@@ -76,7 +80,8 @@ def format_price(price_str: str) -> str:
             zeros = len(s) - len(s.lstrip("0"))
             sig = s.lstrip("0")[:4]
             return f"$0.0{zeros}{sig}"
-    except:
+    except (ValueError, TypeError):
+        logger.debug("format_price: could not parse %r", price_str)
         return f"${price_str}"
 
 
@@ -89,5 +94,6 @@ def format_large(val) -> str:
             return f"${v/1_000:.1f}K"
         else:
             return f"${v:.2f}"
-    except:
+    except (ValueError, TypeError):
+        logger.debug("format_large: could not parse %r", val)
         return "$—"

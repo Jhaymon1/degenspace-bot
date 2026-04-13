@@ -10,7 +10,9 @@ from dexscreener import (
     get_token_price, format_price, format_large
 )
 from config import PAPERDEX_URL, CHAIN_DISPLAY
-import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # ─── /start ───────────────────────────────────────────────
@@ -133,7 +135,10 @@ async def link_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard()
         )
         
-        supabase.auth.sign_out()
+        try:
+            supabase.auth.sign_out()
+        except Exception as e:
+            logger.warning("sign_out failed (non-critical): %s", e)
         
     except Exception as e:
         await update.message.reply_text(
@@ -550,7 +555,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             amount = float(text.replace("$", "").strip())
             if amount <= 0:
                 raise ValueError()
-        except:
+        except (ValueError, TypeError):
             await update.message.reply_text("❌ Enter a valid amount like `50` or `100`", parse_mode="Markdown")
             return
         
@@ -633,6 +638,62 @@ async def handle_buy_token_callback(update: Update, context: ContextTypes.DEFAUL
     )
 
 
+# ─── /alerts ──────────────────────────────────────────────
+async def alerts_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message or update.callback_query.message
+    tg_user = update.effective_user
+    db_user = get_telegram_user(tg_user.id)
+
+    if not db_user or not db_user.get("user_id"):
+        await msg.reply_text("❌ Use /link to connect your account.")
+        return
+
+    try:
+        result = supabase.table("price_alerts")\
+            .select("*")\
+            .eq("telegram_id", tg_user.id)\
+            .eq("is_active", True)\
+            .execute()
+        alerts = result.data or []
+    except Exception as e:
+        logger.error("alerts_view error: %s", e)
+        await msg.reply_text("❌ Could not fetch alerts. Try again.")
+        return
+
+    if not alerts:
+        await msg.reply_text(
+            "🔔 *Price Alerts*\n\n"
+            "You have no active alerts.\n\n"
+            "Go to *Holdings* and tap a token to set an alert.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("« Back", callback_data="menu_main")]
+            ])
+        )
+        return
+
+    text = "🔔 *Your Active Alerts*\n\n"
+    buttons = []
+    for alert in alerts:
+        symbol = alert.get("token_symbol", "?")
+        threshold = alert.get("threshold_percent", 10)
+        alert_type = alert.get("alert_type", "BOTH")
+        text += f"• *{symbol}* — {alert_type} ±{threshold}%\n"
+        buttons.append([
+            InlineKeyboardButton(
+                f"❌ Remove {symbol}",
+                callback_data=f"delalert_{alert['id']}"
+            )
+        ])
+
+    buttons.append([InlineKeyboardButton("« Back", callback_data="menu_main")])
+    await msg.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+
 # ─── CALLBACK ROUTER ──────────────────────────────────────
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -655,6 +716,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await history_view(update, context)
     elif data == "menu_leaderboard":
         await leaderboard_view(update, context)
+    elif data == "menu_alerts":
+        await alerts_view(update, context)
     elif data == "action_search":
         await buy_search(update, context)
     elif data.startswith("sell_"):

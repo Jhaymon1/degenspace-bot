@@ -60,7 +60,11 @@ def main():
         seconds=60,
         args=[app]
     )
-    scheduler.start()
+    try:
+        scheduler.start()
+        logger.info("⏰ Price alert scheduler started")
+    except Exception as exc:
+        logger.error("Failed to start scheduler: %s", exc)
     
     logger.info("🚀 PaperDex Bot starting (web + polling)...")
     app.run_polling(drop_pending_updates=True)
