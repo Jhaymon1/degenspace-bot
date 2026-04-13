@@ -78,11 +78,11 @@ def get_session(telegram_id: int):
     return {"telegram_id": telegram_id, "state": "idle", "temp_data": {}}
 
 
-def set_session(telegram_id: int, state: str, temp_data: dict = {}):
+def set_session(telegram_id: int, state: str, temp_data: dict = None):
     supabase.table("bot_sessions").upsert({
         "telegram_id": telegram_id,
         "state": state,
-        "temp_data": temp_data,
+        "temp_data": temp_data if temp_data is not None else {},
         "updated_at": "now()"
     }).execute()
 
