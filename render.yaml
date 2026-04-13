@@ -1,13 +1,15 @@
 services:
-  - type: worker
+  - type: web
     name: degenspace-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: WEBHOOK_URL
         sync: false
       - key: SUPABASE_URL
         sync: false

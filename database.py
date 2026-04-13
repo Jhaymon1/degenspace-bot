@@ -1,4 +1,5 @@
 from supabase import create_client
+from datetime import datetime, timezone
 from config import SUPABASE_URL, SUPABASE_KEY, CHAIN_FEES
 
 _supabase_client = None
@@ -78,12 +79,14 @@ def get_session(telegram_id: int):
     return {"telegram_id": telegram_id, "state": "idle", "temp_data": {}}
 
 
-def set_session(telegram_id: int, state: str, temp_data: dict = {}):
+def set_session(telegram_id: int, state: str, temp_data: dict | None = None):
+    if temp_data is None:
+        temp_data = {}
     supabase.table("bot_sessions").upsert({
         "telegram_id": telegram_id,
         "state": state,
         "temp_data": temp_data,
-        "updated_at": "now()"
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
 
@@ -138,7 +141,7 @@ def execute_buy(user_id: str, token_data: dict, amount_usd: float):
             .update({
                 "amount_held": new_amount,
                 "avg_buy_price_usd": new_avg,
-                "last_updated": "now()"
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             })\
             .eq("id", h["id"])\
             .execute()
@@ -224,7 +227,7 @@ def execute_sell(user_id: str, holding: dict, sell_percent: float, current_price
         supabase.table("holdings")\
             .update({
                 "amount_held": holding["amount_held"] - tokens_to_sell,
-                "last_updated": "now()"
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             })\
             .eq("id", holding["id"])\
             .execute()

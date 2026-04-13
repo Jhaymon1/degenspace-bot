@@ -15,6 +15,7 @@ def _require_env(name: str) -> str:
 
 
 BOT_TOKEN = _require_env("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = _require_env("WEBHOOK_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 PAPERDEX_URL = os.getenv("PAPERDEX_URL", "")
