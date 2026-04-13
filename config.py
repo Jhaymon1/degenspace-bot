@@ -3,10 +3,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+def _require_env(name: str) -> str:
+    val = os.getenv(name)
+    if not val:
+        raise RuntimeError(
+            f"Missing required environment variable: {name}. "
+            "Set it in Render Dashboard → Environment."
+        )
+    return val
+
+
+BOT_TOKEN = _require_env("TELEGRAM_BOT_TOKEN")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-PAPERDEX_URL = os.getenv("PAPERDEX_URL")
+PAPERDEX_URL = os.getenv("PAPERDEX_URL", "")
 
 DEXSCREENER_BASE = "https://api.dexscreener.com"
 ALERT_CHECK_INTERVAL = 60  # seconds between price alert checks
