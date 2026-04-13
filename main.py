@@ -1,4 +1,6 @@
 import logging
+import threading
+import uvicorn
 from telegram.ext import (
     Application, CommandHandler, 
     MessageHandler, CallbackQueryHandler,
@@ -12,6 +14,7 @@ from handlers import (
 )
 from alerts import check_price_alerts
 from config import BOT_TOKEN
+from web import app as web_app, port as web_port
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -20,7 +23,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _run_web():
+    """Start the FastAPI/Uvicorn server for Render health checks."""
+    uvicorn.run(web_app, host="0.0.0.0", port=web_port(), log_level="info")
+
+
 def main():
+    # Start HTTP server in a daemon thread so Render Web Service health checks pass
+    web_thread = threading.Thread(target=_run_web, daemon=True)
+    web_thread.start()
+    logger.info("🌐 Web server started on port %d", web_port())
+
     app = Application.builder().token(BOT_TOKEN).build()
     
     # Command handlers
@@ -49,7 +62,7 @@ def main():
     )
     scheduler.start()
     
-    logger.info("🚀 PaperDex Bot starting...")
+    logger.info("🚀 PaperDex Bot starting (web + polling)...")
     app.run_polling(drop_pending_updates=True)
 
 
