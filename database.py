@@ -1,7 +1,29 @@
 from supabase import create_client
-from config import SUPABASE_URL, SUPABASE_KEY
+from config import SUPABASE_URL, SUPABASE_KEY, CHAIN_FEES
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+_supabase_client = None
+
+
+def _get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise RuntimeError(
+                "Supabase env vars missing. "
+                "Set SUPABASE_URL and SUPABASE_KEY in Render Environment."
+            )
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
+
+
+class _SupabaseProxy:
+    """Forwards all attribute access to the lazily-initialised Supabase client."""
+
+    def __getattr__(self, name):
+        return getattr(_get_supabase(), name)
+
+
+supabase = _SupabaseProxy()
 
 
 def get_telegram_user(telegram_id: int):
@@ -268,6 +290,3 @@ def get_leaderboard(limit: int = 10):
     
     results.sort(key=lambda x: x["gain_pct"], reverse=True)
     return results[:limit]
-
-
-from config import CHAIN_FEES
